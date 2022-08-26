@@ -6,6 +6,7 @@
 # Menu driven interface, using PyInquirer, typerm and Yaspin.
 
 
+import email
 from webbrowser import get
 import typer
 from yaspin import yaspin
@@ -18,6 +19,7 @@ import os
 import pandas as pd
 from InquirerPy.utils import patched_print
 from yaspin.spinners import Spinners
+from validate_email_address import validate_email
 
 app = typer.Typer()
 
@@ -25,25 +27,29 @@ menu = [
     Choice(name="Clean CSV", value="clean"),
     Choice(name="Merge CSV", value="merge"),
     Choice(name="Search CSV", value="search"),
+    Separator(),
     Choice(name="Exit", value="exit"),
 ]
 
 clean_menu = [
     Choice(name="Remove Duplicates", value="remove"),
-    Choice(name="Fix Email endings", value="fix"),
+    Choice(name="Verify Emails", value="fix"),
     Choice(name="Sort by Date", value="sort"),
     Choice(name="Full Clean", value="full_clean"),
+    Separator(),
     Choice(name="Save & Exit", value="exit"),
 ]
 
 merge_menu = [
-    Choice("Pick files", "merge"),
-    Choice("Save & Exit", "exit"),
+    Choice("Merge & Save", "merge"),
+    Separator(),
+    Choice("Exit", "exit"),
 ]
 
 search_menu = [
     Choice("Filter by tag", "filter"),
     Choice("Search by value", "search"),
+    Separator(),
     Choice("Exit", "exit"),
 ]
 
@@ -92,9 +98,37 @@ def get_paths(path = os.getcwd()):
         ).execute()
         # if selector == "no" break the loop one line code
         if selector == "no":
-            get_csv_files(paths)
+            paths = get_csv_files(paths)
             break
     return paths
+
+
+# clean up csv files by removing duplicate rows and sorting by column by date
+# @yaspin(Spinners.bouncingBall,text='Loading...', color="magenta", on_color="on_cyan", attrs=["bold"])
+
+def clean_csv(files, action):
+    if action == "remove":
+        for file in files:
+            df = pd.read_csv(file)
+            df.drop_duplicates(subset="Email 1", keep="first", inplace=True)
+    elif action == "fix":
+        for file in files:
+            df = pd.read_csv(file)
+            for email in df["Email 1"].values:
+                
+                if not validate_email(str(email)):
+                    # check if that row contains a phone number
+                    if df
+    elif action == "sort":
+        for file in files:
+            df = pd.read_csv(file)
+            df.sort_values(by=['Date'], inplace=True)
+    elif action == "clean":
+        for file in files:
+            df = pd.read_csv(file)
+            df.drop_duplicates(inplace=True)
+            df = df[df['Email 1'].apply(validate_email(verify=True))]
+            df.sort_values(by=['Date'], inplace=True)
 
 
 @app.command()
@@ -117,13 +151,13 @@ def main():
         ).execute()
 
         if selector == "remove":
-            print("Removing duplicates")
+            clean_csv(files, "remove")
         elif selector == "fix":
-            print("Fixing email endings")
+            clean_csv(files, "fix")
         elif selector == "sort":
-            print("Sorting by date")
+            clean_csv(files, "sort")
         elif selector == "full_clean":
-            print("Full clean")
+            clean_csv(files, "clean")
         elif selector == "exit":
             print("Exiting")
 
