@@ -1,23 +1,12 @@
 #!/usr/bin/env python
-# A CLI tool for interacting with CSV files.
-# Cleans up CSV files by removing duplicate rows and sorting by column by date.
-# Merges multiple CSV files into one.
-# Searches CSV files for a specific value and prints the row that contains it.
-# Menu driven interface, using PyInquirer, typerm and Yaspin.
 
-
-import email
-from webbrowser import get
 import typer
 from yaspin import yaspin
 from InquirerPy import inquirer
 from InquirerPy.base.control import Choice
-from InquirerPy.prompts.expand import Choice
 from InquirerPy.separator import Separator
-from InquirerPy.validator import PathValidator
 import os
 import pandas as pd
-from InquirerPy.utils import patched_print
 from yaspin.spinners import Spinners
 from validate_email_address import validate_email
 
@@ -61,12 +50,12 @@ def get_csv_files(paths):
     csv_files = []
     for path in paths:
         if os.path.isfile(path):
-            patched_print(f"{path} added")
+            print(f"{path} added")
             if path.endswith(".csv"):
                 csv_files.append(path)
         elif os.path.isdir(path):
             for file in os.listdir(path):
-                patched_print(f' ✅ {os.path.basename(os.path.dirname(os.path.join(path, file)))}/{file} added')
+                print(f' ✅ {os.path.basename(os.path.dirname(os.path.join(path, file)))}/{file} added')
                 if file.endswith(".csv"):
                     csv_files.append(os.path.join(path, file))
 
@@ -86,7 +75,7 @@ def get_paths(path = os.getcwd()):
         # add new path to list of paths
         paths.append(new_path)
 
-        patched_print(f'{len(paths)} paths added to load')
+        print(f'{len(paths)} paths added to load')
         selector = inquirer.select(
             message="Will you like to add another file or path?",
             qmark="\n?",
@@ -96,11 +85,16 @@ def get_paths(path = os.getcwd()):
             ],
             pointer="👉",
         ).execute()
-        # if selector == "no" break the loop one line code
         if selector == "no":
             paths = get_csv_files(paths)
             break
     return paths
+
+def validate_phone(phone):
+    if phone.isdigit():
+        return True
+    else:
+        return False
 
 
 # clean up csv files by removing duplicate rows and sorting by column by date
@@ -114,11 +108,22 @@ def clean_csv(files, action):
     elif action == "fix":
         for file in files:
             df = pd.read_csv(file)
-            for email in df["Email 1"].values:
-                
-                if not validate_email(str(email)):
-                    # check if that row contains a phone number
-                    if df
+            # iterate through each row and check if the email if there is a email in the row
+            for index, row in df.iterrows():
+                if validate_email(str(row["Email 1"])):
+                    pass
+                elif not validate_email(str(row["Email 1"])) and validate_phone(row["Phone 1"]):
+                    print(f"{row['Email 1']} Email Invalid but {row['Phone 1']} is a phone number")
+                    df.at[index, "Email 1"] = row["Phone 1"]
+                    pass
+                else:
+                    # print the row and remove the row
+                    print(f"{row['Email 1']} Email &  {row['Phone 1']} Phone Invalid")
+                    df.drop(index, inplace=True)
+                    # print the index of the row removed
+                    print(f"{index} row removed")
+
+
     elif action == "sort":
         for file in files:
             df = pd.read_csv(file)
