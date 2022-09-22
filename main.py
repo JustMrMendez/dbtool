@@ -135,7 +135,6 @@ def clean_csv(files, action):
             df = df[df['Email 1'].apply(validate_email(verify=True))]
             df.sort_values(by=['Date'], inplace=True)
 
-
 @app.command()
 def main():
 
