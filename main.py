@@ -46,18 +46,11 @@ search_menu = [
 
 
 # check if path is a file or directory and return a list of o csv files
-@yaspin(
-    Spinners.bouncingBall,
-    text="Loading...",
-    color="magenta",
-    on_color="on_cyan",
-    attrs=["bold"],
-)
 def get_csv_files(paths):
     csv_files = []
     for path in paths:
         if os.path.isfile(path):
-            print(f"{path} added")
+            print(f"\n{path} added")
             if path.endswith(".csv"):
                 csv_files.append(path)
         elif os.path.isdir(path):
@@ -80,12 +73,12 @@ def get_paths(path=os.getcwd()):
         new_path = inquirer.filepath(
             message="Load CSV file or directory",
             qmark="\n📁",
-            default=home_path,
+            default=home_path+"/data",
         ).execute()
         # add new path to list of paths
         paths.append(new_path)
 
-        print(f"{len(paths)} paths added to load")
+        print(f"\n{len(paths)} paths added to load\n")
         selector = inquirer.select(
             message="Will you like to add another file or path?",
             qmark="\n?",
@@ -93,6 +86,7 @@ def get_paths(path=os.getcwd()):
                 "yes",
                 "no",
             ],
+            default="no",
             pointer="👉",
         ).execute()
         if selector == "no":
@@ -286,35 +280,36 @@ def merge_csv(files):
     else:
         pass
 
-
-    # print("df_one: ", len(df_one))
-    # print("df_two: ", len(df_two))
-
-    # iterate over the rows of the dd_one dataframe
-    for index, row in df_one.iterrows():
-        # if the value in the condition_one column is not empty
-        if not pd.isnull(row[condition_one]):
-            # iterate over the rows of the dd_two dataframe
-            for index, row_2 in df_two.iterrows():
-                # if the value in the condition_two column is not empty
-                if not pd.isnull(row_2[condition_two]):
-                    # if the value in the condition_one column is equal to the value in the condition_two column
-                    if row[condition_one][-4:] == row_2[condition_two][-4:]:
-                        # replace the value in the replace column with the value in the replace_with column
-                        df_one.at[index, replace] = row_2[replace_with]
+    @yaspin(
+        Spinners.bouncingBall,
+        text="Loading...",
+        color="magenta",
+        on_color="on_cyan",
+        attrs=["bold"],
+    )
+    def replace_values(condition_one, condition_two, replace, replace_with):
+        #if the last 4 characters of condition_one are equal to the last 4 characters of condition_two ignore the row that contains the colmns
+        # replace the value of replace with the value of replace_with
+        for index, row in df_one.iterrows():
+            if pd.isnull(row[condition_one]):
+                break
+            else:
+                for index_two, row_two in df_two.iterrows():
+                    if (str(df_one.loc[index, condition_one])[-4:] == str(df_two.loc[index_two, condition_two])[-4:]):
+                        df_one.loc[index, replace] = df_two.loc[index_two, replace_with]
+                        print(f'row {row[condition_one]} and row {row_two[condition_two]} are equal')
                         break
                     else:
                         continue
-                else:
-                    continue
-        else:
-            continue
+                    break
+        return df_one
 
-        # replace the value of the selected replace_one with the value of the replace_with column
-        # if the last 4 digits of the condition_one column match the last 4 digits of the condition_two column
-        if str(row[condition_one])[-4:] == str(df_two.loc[index, condition_two])[-4:]:
-            df_one.loc[index, replace] = df_two.loc[index, replace_with]
-            print("replaced")
+
+    # run the replace_values function
+    df_one = replace_values(condition_one, condition_two, replace, replace_with)
+
+
+    # apply the replace_values function to each row of the dataframe
 
     # df_one[replace] = np.where(
     #     df_one[condition_one].str[-4:].isin(df_two[condition_two].str[-4:]),
@@ -366,6 +361,7 @@ def main():
         if selector == "merge":
             print("Merging")
             merge_csv(files)
+            
         elif selector == "exit":
             print("Exiting")
 
