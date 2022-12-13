@@ -7,12 +7,15 @@ from unicodedata import name
 import numpy as np
 from yaspin import yaspin
 from InquirerPy import inquirer
+
 from InquirerPy.base.control import Choice
 from InquirerPy.separator import Separator
 import os, typer
 import pandas as pd
 from yaspin.spinners import Spinners
 from validate_email_address import validate_email
+import re
+
 
 app = typer.Typer()
 
@@ -130,7 +133,7 @@ def prepare(file):
         # ).execute()
         df = pd.read_csv(file)
         print(df.head())
-   
+
     elif file.endswith(".xlsx"):
         # selector = inquirer.select(
         #     message=f"Select header to use as index for {file}",
@@ -259,29 +262,41 @@ def clean_csv(files):
         print("Not able to prepare csv file")
 
 
+def extract_value(s):
+    if s is None or str(s).strip() == "":
+        return ""
+
+    match = re.search(r"\b\d{4,12}\b",str(s))
+    if match:
+        print("match: ", match.group(0))
+        return str(match.group(0))
+
+    return ""
+
+
 def merge_csv(files):
     file_one = inquirer.select(
         message="Select a file to merge",
         choices=files,
         pointer="👉",
     ).execute()
-    print("file_one: ", file_one)
+    # print("file_one: ", file_one)
     file_two = inquirer.select(
         message="Select a file to merge",
         choices=files,
         pointer="👉",
     ).execute()
-    print("file_two: ", file_two)
+    # print("file_two: ", file_two)
     # read and prepare the selected csv files
     df_one = prepare(file_one)
     df_two = prepare(file_two)
 
     # let user select which columns to replace
-    replace = inquirer.select(
-        message="Select columns to replace",
-        choices=df_one.columns.tolist(),
-        pointer="👉",
-    ).execute()
+    # replace = inquirer.select(
+    #     message="Select columns to replace",
+    #     choices=df_one.columns.tolist(),
+    #     pointer="👉",
+    # ).execute()
     # let user select which column to check as a condition
     condition_one = inquirer.select(
         message="Select a column to check as a condition",
@@ -289,11 +304,11 @@ def merge_csv(files):
         pointer="👉",
     ).execute()
     # let user select which column to replace_with
-    replace_with = inquirer.select(
-        message="Select a column to replace with",
-        choices=df_two.columns.tolist(),
-        pointer="👉",
-    ).execute()
+    # replace_with = inquirer.select(
+    #     message="Select a column to replace with",
+    #     choices=df_two.columns.tolist(),
+    #     pointer="👉",
+    # ).execute()
     # let user select which column to check as a condition
     condition_two = inquirer.select(
         message="Select a column to check as a condition",
@@ -301,49 +316,66 @@ def merge_csv(files):
         pointer="👉",
     ).execute()
 
-    # add empty rows until the two dataframes have the same number of rows
-    if len(df_one) > len(df_two):
-        df_two = df_two.append(
-            [pd.Series() for _ in range(len(df_one) - len(df_two))], ignore_index=True
-        )
-    elif len(df_one) < len(df_two):
-        df_one = df_one.append(
-            [pd.Series() for _ in range(len(df_two) - len(df_one))], ignore_index=True
-        )
-    else:
-        pass
+    print("condition_one: ", condition_one)
+    print("condition_two: ", condition_two)
+    df_two["column_two_extracted"] = df_two[condition_two].apply(extract_value)
+    df_one["column_two_extracted"] = df_one[condition_one].apply(extract_value)
+    print("df_two: ", df_two["column_two_extracted"])
 
-    @yaspin(
-        Spinners.bouncingBall,
-        text="Loading...",
-        color="magenta",
-        on_color="on_cyan",
-        attrs=["bold"],
+    df_one[condition_one] = df_one[condition_one].astype(str)
+    df_two["column_two_extracted"] = df_two["column_two_extracted"].astype(str)
+    
+    df_merged = df_one.merge(
+        df_two, on=[condition_one, "column_two_extracted"], indicator=True, how="outer"
     )
-    def replace_values(condition_one, condition_two, replace, replace_with):
-        # if the last 4 characters of condition_one are equal to the last 4 characters of condition_two ignore the row that contains the colmns
-        # replace the value of replace with the value of replace_with
-        for index, row in df_one.iterrows():
-            if pd.isnull(row[condition_one]):
-                break
-            else:
-                for index_two, row_two in df_two.iterrows():
-                    if (
-                        str(df_one.loc[index, condition_one])[-4:]
-                        == str(df_two.loc[index_two, condition_two])[-4:]
-                    ):
-                        df_one.loc[index, replace] = df_two.loc[index_two, replace_with]
-                        print(
-                            f"row {row[condition_one]} and row {row_two[condition_two]} are equal"
-                        )
-                        break
-                    else:
-                        continue
-                    break
-        return df_one
+    df_merged = df_merged[df_merged["_merge"] == "left_only"]
+
+    # drop the indicator column, as it is no longer needed
+    df_merged.drop("_merge", axis=1, inplace=True)
+
+    # add empty rows until the two dataframes have the same number of rows
+    # if len(df_one) > len(df_two):
+    #     df_two = df_two.append(
+    #         [pd.Series() for _ in range(len(df_one) - len(df_two))], ignore_index=True
+    #     )
+    # elif len(df_one) < len(df_two):
+    #     df_one = df_one.append(
+    #         [pd.Series() for _ in range(len(df_two) - len(df_one))], ignore_index=True
+    #     )
+    # else:
+    #     pass
+
+    # @yaspin(
+    #     Spinners.bouncingBall,
+    #     text="Loading...",
+    #     color="magenta",
+    #     on_color="on_cyan",
+    #     attrs=["bold"],
+    # )
+    # def replace_values(condition_one, condition_two, replace, replace_with):
+    #     # if the last 4 characters of condition_one are equal to the last 4 characters of condition_two ignore the row that contains the colmns
+    #     # replace the value of replace with the value of replace_with
+    #     for index, row in df_one.iterrows():
+    #         if pd.isnull(row[condition_one]):
+    #             break
+    #         else:
+    #             for index_two, row_two in df_two.iterrows():
+    #                 if (
+    #                     str(df_one.loc[index, condition_one])[-4:]
+    #                     == str(df_two.loc[index_two, condition_two])[-4:]
+    #                 ):
+    #                     df_one.loc[index, replace] = df_two.loc[index_two, replace_with]
+    #                     print(
+    #                         f"row {row[condition_one]} and row {row_two[condition_two]} are equal"
+    #                     )
+    #                     break
+    #                 else:
+    #                     continue
+    #                 break
+    #     return df_one
 
     # run the replace_values function
-    df_one = replace_values(condition_one, condition_two, replace, replace_with)
+    # df_one = replace_values(condition_one, condition_two, replace, replace_with)
 
     # apply the replace_values function to each row of the dataframe
 
@@ -364,8 +396,8 @@ def merge_csv(files):
     ).execute()
     if selector == "save":
         # save the merged csv file with the _merged suffix
-        df_one.to_csv(f"{os.path.splitext(file_one)[0]}_merged.csv", index=False)
-        print(f"✅ {os.path.basename(file_one)} saved")
+        df_merged.to_csv(f"{os.path.splitext(file_one)[0]}_merged.csv", index=False)
+        # print(f"✅ {os.path.basename(file_one)} saved")
     else:
         # save the merged csv file as a temporary csv file
         df_one.to_csv(f"{os.path.splitext(file_one)[0]}_merged_temp.csv", index=False)
