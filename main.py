@@ -52,7 +52,6 @@ search_menu = [
 ]
 
 
-# check if path is a file or directory and return a list of o csv files
 def get_csv_files(paths):
     csv_files = []
     for path in paths:
@@ -61,14 +60,11 @@ def get_csv_files(paths):
             if path.endswith(".csv"):
                 csv_files.append(path)
             elif path.endswith(".xlsx"):
-                # convert excel file to csv
                 df = pd.read_excel(path)
                 csv_path = path.replace(".xlsx", ".csv")
                 df.to_csv(csv_path, index=False)
                 csv_files.append(csv_path)
-                # save the csv file to the same directory as the excel file
                 print(f"\n{path} converted to {csv_path}")
-                # rename the excel file to avoid confusion by adding a prefix
                 os.rename(path, f"old_{path}")
         elif os.path.isdir(path):
             for file in os.listdir(path):
@@ -81,7 +77,6 @@ def get_csv_files(paths):
     return csv_files
 
 
-# run a while loop asking the user if they want to add more files or path
 def get_paths(path=os.getcwd()):
     paths = []
     selector = "yes"
@@ -92,7 +87,6 @@ def get_paths(path=os.getcwd()):
             qmark="\n📁",
             default=home_path,
         ).execute()
-        # add new path to list of paths
         paths.append(new_path)
 
         print(f"\n{len(paths)} paths added to load\n")
@@ -119,36 +113,18 @@ def validate_phone(phone):
         return False
 
 
-# clean up csv files by removing duplicate rows and sorting by column by date
-# @yaspin(Spinners.bouncingBall,text='Loading...', color="magenta", on_color="on_cyan", attrs=["bold"])
 def prepare(file):
     if file.endswith(".csv"):
-        # ask user to select index column
-        # selector = inquirer.select(
-        #     message=f"Select header to use as index for {file}",
-        #     qmark="\n📁",
-        #     choices=[0, 1, 2, 3, 4],
-        #     default=0,
-        #     pointer="👉",
-        # ).execute()
         df = pd.read_csv(file)
         print(df.head())
 
     elif file.endswith(".xlsx"):
-        # selector = inquirer.select(
-        #     message=f"Select header to use as index for {file}",
-        #     qmark="\n📁",
-        #     choices=[0, 1, 2, 3, 4],
-        #     default=0,
-        #     pointer="👉",
-        # ).execute()
         df = pd.read_excel(file)
         print(df.head())
     df = df.replace(r"\n", " ", regex=True)
     df = df.replace(r"\r", " ", regex=True)
     df = df.replace(r"\t", " ", regex=True)
 
-    # Remove empty columns or unnamed columns
     df = df.loc[:, ~df.columns.str.contains("^Unnamed")]
     print("✅ Empty columns and rows removed")
 
@@ -156,7 +132,6 @@ def prepare(file):
     df = df.loc[:, ~df.columns.duplicated()]
     print("✅ Duplicate rows and columns removed")
 
-    # drop any row that contains the word page and of in any column
     df = df[~df.astype(str).apply(lambda x: x.str.contains("page|of")).any(1)]
 
     return df
@@ -171,7 +146,6 @@ def clean_csv(files):
 
     print("action: ", action)
     if action == "prepare":
-        # ask user to select wich file to clean
         file = inquirer.select(
             message="Select file to clean",
             qmark="\n📁",
@@ -180,7 +154,6 @@ def clean_csv(files):
             pointer="👉",
         ).execute()
         df = prepare(file)
-        # ask save or reopen the clean menu
         selector = inquirer.select(
             message="Save or clean more?",
             qmark="\n?",
@@ -191,12 +164,10 @@ def clean_csv(files):
             pointer="👉",
         ).execute()
         if selector == "save":
-            # save the cleaned csv file with the _prepared suffix
             df.to_csv(f"{os.path.splitext(file)[0]}_prepared.csv", index=False)
             print(f"✅ {os.path.basename(file)} saved")
             main()
         else:
-            # save a temporary csv file
             df.to_csv(f"{os.path.splitext(file)[0]}_temp.csv", index=False)
             clean_menu[0].name = f"{clean_menu[0].name} ✔️"
             clean_csv(files=[f"{os.path.splitext(file)[0]}_temp.csv"])
@@ -204,18 +175,14 @@ def clean_csv(files):
     elif action == "split":
         for file in files:
             df = pd.read_csv(file)
-            # ask user to select a select multiple columns
             columns = inquirer.checkbox(
                 message="Select columns to split",
                 choices=df.columns.tolist(),
                 pointer="👉",
             ).execute()
-        # create a dataframe copy containing only rows where the selected columns are empty
         df_empty = df[df[columns].isnull().all(axis=1)].copy()
-        # create a dataframe copy containing only rows where the selected columns are not empty
         df_not_empty = df[~df[columns].isnull().all(axis=1)].copy()
 
-        # ask save or reopen the clean menu
         selector = inquirer.select(
             message="Save or clean more?",
             qmark="\n?",
@@ -226,14 +193,12 @@ def clean_csv(files):
             pointer="👉",
         ).execute()
         if selector == "save":
-            # save both dataframes as csv files
             df_empty.to_csv(f"{os.path.splitext(file)[0]}_empty.csv", index=False)
             df_not_empty.to_csv(
                 f"{os.path.splitext(file)[0]}_not_empty.csv", index=False
             )
             print(f"✅ {os.path.basename(file)} saved")
         else:
-            # save both all 3 dataframes as temporary csv files
             df.to_csv(f"{os.path.splitext(file)[0]}_temp.csv", index=False)
             df_empty.to_csv(f"{os.path.splitext(file)[0]}_empty_temp.csv", index=False)
             df_not_empty.to_csv(
@@ -266,7 +231,7 @@ def extract_value(s):
     if s is None or str(s).strip() == "":
         return ""
 
-    match = re.search(r"\b\d{4,12}\b",str(s))
+    match = re.search(r"\b\d{4,12}\b", str(s))
     if match:
         print("match: ", match.group(0))
         return str(match.group(0))
@@ -280,126 +245,43 @@ def merge_csv(files):
         choices=files,
         pointer="👉",
     ).execute()
-    # print("file_one: ", file_one)
     file_two = inquirer.select(
         message="Select a file to merge",
         choices=files,
         pointer="👉",
     ).execute()
-    # print("file_two: ", file_two)
-    # read and prepare the selected csv files
     df_one = prepare(file_one)
     df_two = prepare(file_two)
 
-    # let user select which columns to replace
-    # replace = inquirer.select(
-    #     message="Select columns to replace",
-    #     choices=df_one.columns.tolist(),
-    #     pointer="👉",
-    # ).execute()
-    # let user select which column to check as a condition
     condition_one = inquirer.select(
         message="Select a column to check as a condition",
         choices=df_one.columns.tolist(),
         pointer="👉",
     ).execute()
-    # let user select which column to replace_with
-    # replace_with = inquirer.select(
-    #     message="Select a column to replace with",
-    #     choices=df_two.columns.tolist(),
-    #     pointer="👉",
-    # ).execute()
-    # let user select which column to check as a condition
+
     condition_two = inquirer.select(
         message="Select a column to check as a condition",
         choices=df_two.columns.tolist(),
         pointer="👉",
     ).execute()
 
-    print("condition_one: ", condition_one)
-    print("condition_two: ", condition_two)
-    df_two["column_two_extracted"] = df_two[condition_two].apply(extract_value)
-    df_one["column_two_extracted"] = df_one[condition_one].apply(extract_value)
-    print("df_two: ", df_two["column_two_extracted"])
-
-    df_one[condition_one] = df_one[condition_one].astype(str)
-    df_two["column_two_extracted"] = df_two["column_two_extracted"].astype(str)
-    
-    df_merged = df_one.merge(
-        df_two, on=[condition_one, "column_two_extracted"], indicator=True, how="outer"
+    # using np if the value of df_one[condition_one] is not in df_two[condition_two] then add it to df_two
+    df_merged = df_two.append(
+        df_one[~df_one[condition_one].isin(df_two[condition_two])], sort=False
     )
-    df_merged = df_merged[df_merged["_merge"] == "left_only"]
 
-    # drop the indicator column, as it is no longer needed
-    df_merged.drop("_merge", axis=1, inplace=True)
-
-    # add empty rows until the two dataframes have the same number of rows
-    # if len(df_one) > len(df_two):
-    #     df_two = df_two.append(
-    #         [pd.Series() for _ in range(len(df_one) - len(df_two))], ignore_index=True
-    #     )
-    # elif len(df_one) < len(df_two):
-    #     df_one = df_one.append(
-    #         [pd.Series() for _ in range(len(df_two) - len(df_one))], ignore_index=True
-    #     )
-    # else:
-    #     pass
-
-    # @yaspin(
-    #     Spinners.bouncingBall,
-    #     text="Loading...",
-    #     color="magenta",
-    #     on_color="on_cyan",
-    #     attrs=["bold"],
-    # )
-    # def replace_values(condition_one, condition_two, replace, replace_with):
-    #     # if the last 4 characters of condition_one are equal to the last 4 characters of condition_two ignore the row that contains the colmns
-    #     # replace the value of replace with the value of replace_with
-    #     for index, row in df_one.iterrows():
-    #         if pd.isnull(row[condition_one]):
-    #             break
-    #         else:
-    #             for index_two, row_two in df_two.iterrows():
-    #                 if (
-    #                     str(df_one.loc[index, condition_one])[-4:]
-    #                     == str(df_two.loc[index_two, condition_two])[-4:]
-    #                 ):
-    #                     df_one.loc[index, replace] = df_two.loc[index_two, replace_with]
-    #                     print(
-    #                         f"row {row[condition_one]} and row {row_two[condition_two]} are equal"
-    #                     )
-    #                     break
-    #                 else:
-    #                     continue
-    #                 break
-    #     return df_one
-
-    # run the replace_values function
-    # df_one = replace_values(condition_one, condition_two, replace, replace_with)
-
-    # apply the replace_values function to each row of the dataframe
-
-    # df_one[replace] = np.where(
-    #     df_one[condition_one].str[-4:].isin(df_two[condition_two].str[-4:]),
-    #     df_two[replace_with],
-    #     df_one[replace],
-    # )
-    # ask save or reopen the clean menu
     selector = inquirer.select(
         message="Save or clean more?",
         qmark="\n?",
         choices=[
             "save",
-            "keep cleaning",
+            "keep merging",
         ],
         pointer="👉",
     ).execute()
     if selector == "save":
-        # save the merged csv file with the _merged suffix
         df_merged.to_csv(f"{os.path.splitext(file_one)[0]}_merged.csv", index=False)
-        # print(f"✅ {os.path.basename(file_one)} saved")
     else:
-        # save the merged csv file as a temporary csv file
         df_one.to_csv(f"{os.path.splitext(file_one)[0]}_merged_temp.csv", index=False)
         merge_menu[0].name = f"{merge_menu[0].name} ✔️"
         merge_csv(files=[f"{os.path.splitext(file_one)[0]}_merged_temp.csv"])
@@ -419,10 +301,8 @@ def join_csv(files):
     df_one = prepare(file_one)
     df_two = prepare(file_two)
 
-    # add file 2 to file 1
     df_one = df_one.append(df_two, ignore_index=True)
 
-    # ask save or reopen the clean menu
     selector = inquirer.select(
         message="Save or clean more?",
         qmark="\n?",
@@ -433,11 +313,9 @@ def join_csv(files):
         pointer="👉",
     ).execute()
     if selector == "save":
-        # save the merged csv file with the _merged suffix
         df_one.to_csv(f"{os.path.splitext(file_one)[0]}_joined.csv", index=False)
         print(f"✅ {os.path.basename(file_one)} saved")
     else:
-        # save the merged csv file as a temporary csv file
         df_one.to_csv(f"{os.path.splitext(file_one)[0]}_joined_temp.csv", index=False)
         merge_menu[1].name = f"{merge_menu[1].name} ✔️"
         join_csv(files=[f"{os.path.splitext(file_one)[0]}_joined_temp.csv"])
@@ -457,24 +335,20 @@ def compare_csv(files):
     df_one = prepare(main)
     df_two = prepare(to_merge)
 
-    # select a column to compare
     column = inquirer.select(
         message="Select a column to compare",
         choices=df_one.columns.tolist(),
         pointer="👉",
     ).execute()
-    # select a column to compare
     column_two = inquirer.select(
         message="Select a column to compare",
         choices=df_two.columns.tolist(),
         pointer="👉",
     ).execute()
-    # add any rows that are not in the to_merge file to the main file.
     df_one = df_one.append(
         df_two[~df_two[column_two].isin(df_one[column])], ignore_index=True
     )
 
-    # ask save or reopen the clean menu
     selector = inquirer.select(
         message="Save or compare more?",
         qmark="\n?",
@@ -485,11 +359,9 @@ def compare_csv(files):
         pointer="👉",
     ).execute()
     if selector == "save":
-        # save the merged csv file with the _merged suffix
         df_one.to_csv(f"{os.path.splitext(main)[0]}_joined.csv", index=False)
         print(f"✅ {os.path.basename(main)} saved")
     else:
-        # save the merged csv file as a temporary csv file
         df_one.to_csv(f"{os.path.splitext(main)[0]}_joined_temp.csv", index=False)
         merge_menu[1].name = f"{merge_menu[1].name} ✔️"
         join_csv(files=[f"{os.path.splitext(main)[0]}_joined_temp.csv"])
