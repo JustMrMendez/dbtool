@@ -16,6 +16,7 @@ from yaspin.spinners import Spinners
 from validate_email_address import validate_email
 import re
 
+from lib.cleaner import expclean_csv
 
 app = typer.Typer()
 
@@ -144,7 +145,6 @@ def clean_csv(files):
         pointer="👉",
     ).execute()
 
-    print("action: ", action)
     if action == "prepare":
         file = inquirer.select(
             message="Select file to clean",
@@ -153,7 +153,7 @@ def clean_csv(files):
             default=0,
             pointer="👉",
         ).execute()
-        df = prepare(file)
+        df = expclean_csv(file)
         selector = inquirer.select(
             message="Save or clean more?",
             qmark="\n?",
@@ -227,18 +227,6 @@ def clean_csv(files):
         print("Not able to prepare csv file")
 
 
-def extract_value(s):
-    if s is None or str(s).strip() == "":
-        return ""
-
-    match = re.search(r"\b\d{4,12}\b", str(s))
-    if match:
-        print("match: ", match.group(0))
-        return str(match.group(0))
-
-    return ""
-
-
 def merge_csv(files):
     file_one = inquirer.select(
         message="Select a file to merge",
@@ -265,10 +253,7 @@ def merge_csv(files):
         pointer="👉",
     ).execute()
 
-    # using np if the value of df_one[condition_one] is not in df_two[condition_two] then add it to df_two
-    df_merged = df_two.append(
-        df_one[~df_one[condition_one].isin(df_two[condition_two])], sort=False
-    )
+    df_merged =  df_one[condition_one].apply(lambda x: df_two[condition_two].str.contains(str(x)).any())
 
     selector = inquirer.select(
         message="Save or clean more?",
