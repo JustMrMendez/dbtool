@@ -253,7 +253,36 @@ def merge_csv(files):
         pointer="👉",
     ).execute()
 
-    df_merged =  df_one[condition_one].apply(lambda x: df_two[condition_two].str.contains(str(x)).any())
+    df_one[condition_one] = df_one[condition_one].astype(df_two[condition_two].dtype)
+
+    # df_merged = pd.concat([df_one[~df_one[condition_one].apply(lambda x: df_two[condition_two].str.contains(str(x)).any())], df_two], axis=0, join='inner')
+    # df_merged = df_one[
+    #     ~df_one[condition_one].apply(
+    #         lambda x: df_two[condition_two].str.contains(str(x)).any()
+    #     )
+    # ]
+
+    # df_4 = merge using the condition: df_one[condition_one].apply(lambda x: df_two[condition_two].str.contains(str(x)).any())
+    # and leave only the rows from df_two that didn't match with df_one
+
+    df_two["match"] = df_one[condition_one].apply(
+        lambda x: df_two[condition_two].str.contains(str(x)).any()
+    )
+    
+    df_merged = pd.concat(
+        [
+            df_two[df_two["match"] == True],
+            df_one[
+                ~df_one[condition_one].apply(
+                    lambda x: df_two[condition_two].str.contains(str(x)).any()
+                )
+            ],
+        ],
+        axis=0,
+        join="inner",
+    )
+    
+    print("🚀 ~ file: main.py:265 ~ df_4", df_merged)
 
     selector = inquirer.select(
         message="Save or clean more?",
