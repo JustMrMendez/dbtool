@@ -25,8 +25,7 @@ def split_df(file, clean=False):
     values = df[column].unique()
 
     split_by_all = inquirer.confirm(
-        message="Do you want to split by all values?",
-        default=False
+        message="Do you want to split by all values?", default=False
     ).execute()
 
     if split_by_all:
@@ -41,8 +40,10 @@ def split_df(file, clean=False):
     for value in values_to_split:
         value_df = df[df[column] == value]
 
-        file_name = os.path.splitext(file)[0]
+        # create a new directory using the file name
+        directory = os.path.splitext(file)[0]
+        if not os.path.exists(directory):
+            os.makedirs(directory)
 
-        new_file_name = f"{file_name}_{value}.csv"
-
-        value_df.to_csv(new_file_name, index=False)
+        # save the new dataframe to a new csv file
+        value_df.to_csv(f"{directory + os.sep + value}.csv", index=False)
