@@ -7,23 +7,22 @@ from unicodedata import name
 import numpy as np
 from yaspin import yaspin
 from InquirerPy import inquirer
-
 from InquirerPy.base.control import Choice
 from InquirerPy.separator import Separator
 import os, typer
 import pandas as pd
-from yaspin.spinners import Spinners
 from validate_email_address import validate_email
-import re
 
 from lib.cleaner import expclean_csv
 from lib.searcher import search_dataframe
+from lib.splitter import split_df
 
 app = typer.Typer()
 
 menu = [
     Choice(name="Clean CSV", value="clean"),
     Choice(name="Merge CSV", value="merge"),
+    Choice(name="Split CSV", value="split"),
     Choice(name="Search CSV", value="search"),
     Separator(),
     Choice(name="Exit", value="exit"),
@@ -48,7 +47,8 @@ merge_menu = [
 
 search_menu = [
     Choice("Filter by tag", "filter"),
-    Choice("Search by value", "search"),
+    Choice("Search & Clean", "search"),
+    Choice("Just Search", "search_only"),
     Separator(),
     Choice("Exit", "exit"),
 ]
@@ -154,15 +154,7 @@ def clean_csv(files):
             clean_csv(files=[f"{os.path.splitext(file)[0]}_temp.csv"])
 
     elif action == "split":
-        for file in files:
-            df = pd.read_csv(file)
-            columns = inquirer.checkbox(
-                message="Select columns to split",
-                choices=df.columns.tolist(),
-                pointer="👉",
-            ).execute()
-        df_empty = df[df[columns].isnull().all(axis=1)].copy()
-        df_not_empty = df[~df[columns].isnull().all(axis=1)].copy()
+        print("Splitting data...")
 
         selector = inquirer.select(
             message="Save or clean more?",
@@ -397,17 +389,45 @@ def main():
             print("Exiting")
     elif selector == "search":
         files = get_paths()
-        df = expclean_csv(files[0])
+        # choose file from path
+        file = inquirer.select(
+            message="Select a file",
+            choices=files,
+            pointer="👉",
+        ).execute()
+        df = expclean_csv(file)
         # ask for column
         column = inquirer.select(
             message="Select a column to search",
             choices=df.columns.tolist(),
             pointer="👉",
         ).execute()
-        print("Searching")
         filtered_df = search_dataframe(df, column)
         print(filtered_df.head())
-        filtered_df.to_csv(f"{os.path.splitext(files[0])[0]}_filtered.csv", index=False)
+        filtered_df.to_csv(f"{os.path.splitext(file)[0]}_filtered.csv", index=False)
+    elif selector == "split":
+        files = get_paths()
+        # choose file from path
+        file = inquirer.select(
+            message="Select a file",
+            choices=files,
+            pointer="👉",
+        ).execute()
+        # ask if clean and split or just split
+        action = inquirer.select(
+            message="Do you want to clean and split?",
+            qmark="\n?",
+            choices=[
+                "clean and split",
+                "just split",
+            ],
+            pointer="👉",
+        ).execute()
+        if action == "clean and split":
+            split_df(file, clean=True)
+        else:
+            split_df(file)
+
 
 if __name__ == "__main__":
     app()
