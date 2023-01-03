@@ -17,6 +17,7 @@ from validate_email_address import validate_email
 import re
 
 from lib.cleaner import expclean_csv
+from lib.searcher import search_dataframe
 
 app = typer.Typer()
 
@@ -115,27 +116,7 @@ def validate_phone(phone):
 
 
 def prepare(file):
-    if file.endswith(".csv"):
-        df = pd.read_csv(file)
-        print(df.head())
-
-    elif file.endswith(".xlsx"):
-        df = pd.read_excel(file)
-        print(df.head())
-    df = df.replace(r"\n", " ", regex=True)
-    df = df.replace(r"\r", " ", regex=True)
-    df = df.replace(r"\t", " ", regex=True)
-
-    df = df.loc[:, ~df.columns.str.contains("^Unnamed")]
-    print("✅ Empty columns and rows removed")
-
-    df = df.drop_duplicates()
-    df = df.loc[:, ~df.columns.duplicated()]
-    print("✅ Duplicate rows and columns removed")
-
-    df = df[~df.astype(str).apply(lambda x: x.str.contains("page|of")).any(1)]
-
-    return df
+    return expclean_csv(file)
 
 
 def clean_csv(files):
@@ -268,7 +249,7 @@ def merge_csv(files):
     df_two["match"] = df_one[condition_one].apply(
         lambda x: df_two[condition_two].str.contains(str(x)).any()
     )
-    
+
     df_merged = pd.concat(
         [
             df_two[df_two["match"] == True],
@@ -281,7 +262,7 @@ def merge_csv(files):
         axis=0,
         join="inner",
     )
-    
+
     print("🚀 ~ file: main.py:265 ~ df_4", df_merged)
 
     selector = inquirer.select(
@@ -414,7 +395,19 @@ def main():
 
         elif selector == "exit":
             print("Exiting")
-
+    elif selector == "search":
+        files = get_paths()
+        df = expclean_csv(files[0])
+        # ask for column
+        column = inquirer.select(
+            message="Select a column to search",
+            choices=df.columns.tolist(),
+            pointer="👉",
+        ).execute()
+        print("Searching")
+        filtered_df = search_dataframe(df, column)
+        print(filtered_df.head())
+        filtered_df.to_csv(f"{os.path.splitext(files[0])[0]}_filtered.csv", index=False)
 
 if __name__ == "__main__":
     app()

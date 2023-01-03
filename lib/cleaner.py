@@ -1,17 +1,21 @@
 import pandas as pd
-import numpy as np
+# import numpy as np
 
-def expclean_csv(csv_file, head=3):
-    df = pd.read_csv(csv_file, skiprows=head-1, skipfooter=4, engine='python')
+def expclean_csv(file_path, head=3):
+    if file_path.endswith('.xlsx'):
+        df = pd.read_excel(file_path, skiprows=head-1, skipfooter=4)
+    elif file_path.endswith('.csv'):
+        df = pd.read_csv(file_path, skiprows=head-1, skipfooter=4, engine='python')
+    else:
+        raise ValueError('Unsupported file type')
+
     df = df.dropna(axis=1, how='all')
     df = df.dropna(axis=0, how='all')
     df = df.drop_duplicates()
-    # drop unnamed columns
     df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
-    # remove /n from column names
     df.columns = df.columns.str.replace('\n', '')
-    df = df.dropna(thresh=len(df.columns) * 0.5, axis=0)
+    df = df.dropna(thresh=len(df.columns) * 0.3, axis=0)
     df = df.reset_index(drop=False)
+    
     return df
-
 
