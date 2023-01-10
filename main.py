@@ -14,6 +14,7 @@ import pandas as pd
 from validate_email_address import validate_email
 
 from lib.cleaner import expclean_csv
+from lib.custom_fix import fix_whitespace
 from lib.searcher import search_dataframe
 from lib.splitter import split_df
 
@@ -24,6 +25,7 @@ menu = [
     Choice(name="Merge CSV", value="merge"),
     Choice(name="Split CSV", value="split"),
     Choice(name="Search CSV", value="search"),
+    Choice(name="Custom Fix", value="fix"),
     Separator(),
     Choice(name="Exit", value="exit"),
 ]
@@ -395,7 +397,9 @@ def main():
             choices=files,
             pointer="👉",
         ).execute()
-        df = expclean_csv(file)
+        # df = expclean_csv(file)
+        # read csv using pandas
+        df = pd.read_csv(file)
         # ask for column
         column = inquirer.select(
             message="Select a column to search",
@@ -427,7 +431,9 @@ def main():
             split_df(file, clean=True)
         else:
             split_df(file)
-
+    elif selector == "fix":
+        files = get_paths()
+        fix_whitespace(files)
 
 if __name__ == "__main__":
     app()

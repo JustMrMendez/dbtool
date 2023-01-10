@@ -2,9 +2,11 @@
 from InquirerPy import inquirer
 from InquirerPy.base.control import Choice
 from InquirerPy.separator import Separator
+import pandas as pd
 
 
 def search_dataframe(df, column_name):
+    filtered_df = pd.DataFrame()
     while True:
         search_menu = [
             Choice("filter", "Filter by tag"),
@@ -31,8 +33,7 @@ def search_dataframe(df, column_name):
             ).execute()
 
             search_results = df[df[column_name].str.contains(search_value, case=False)]
-            df = search_results
+            # us pandas concat to add the search results to the filtered df
+            filtered_df = pd.concat([filtered_df, search_results])
         else:
-            # Save the results and exit
-            df.to_csv("search_results.csv", index=False)
-            break
+            return filtered_df
